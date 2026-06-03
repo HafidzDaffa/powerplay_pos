@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Theme Constants (Dark Mode, IDR)
+// Dependor — Theme Constants (Dark Mode, IDR)
 // ============================================================
 
 export const Colors = {

@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Categories DB Queries
+// Dependor — Categories DB Queries
 // ============================================================
 import { getDatabase } from './database';
 import { Category } from '../types';

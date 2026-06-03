@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Transactions DB Queries
+// Dependor — Transactions DB Queries
 // ============================================================
 import { getDatabase } from './database';
 import { Transaction, TransactionItem, TransactionWithItems, CartItem } from '../types';

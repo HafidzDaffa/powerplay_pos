@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -50,7 +50,7 @@ export default function SettingsScreen() {
           key: 'excel',
           icon: 'document-text-outline',
           label: 'Ekspor Produk ke Excel',
-          subtitle: 'Data produk & barcode SKU dalam format .xlsx',
+          subtitle: 'Data produk & QR Code SKU dalam format .xlsx',
           color: Colors.accentGreen,
           action: () => handle('excel', exportProductsToExcel),
         },
@@ -74,6 +74,14 @@ export default function SettingsScreen() {
       items: [
         {
           key: null,
+          icon: 'receipt-outline',
+          label: 'Riwayat Transaksi',
+          subtitle: 'Lihat daftar transaksi sukses & ekspor invoice struk',
+          color: Colors.accentGreen,
+          action: () => router.push('/modals/history'),
+        },
+        {
+          key: null,
           icon: 'trash-outline',
           label: 'Tempat Sampah',
           subtitle: 'Kelola produk, transaksi & arus kas yang dihapus',
@@ -89,9 +97,9 @@ export default function SettingsScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.logoWrap}>
-            <Ionicons name="storefront" size={40} color={Colors.primary} />
+            <Image source={require('../../assets/logo.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
           </View>
-          <Text style={styles.appName}>POS PowerPlay</Text>
+          <Text style={styles.appName}>Dependor</Text>
           <Text style={styles.version}>Versi 1.0.0 • Android</Text>
         </View>
 
@@ -128,7 +136,7 @@ export default function SettingsScreen() {
         ))}
 
         <Text style={styles.footer}>
-          POS PowerPlay © 2024• Dibuat dengan ❤️ untuk UMKM Indonesia
+          Dependor © 2026
         </Text>
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -143,6 +151,7 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: Colors.primary + '22', alignItems: 'center',
     justifyContent: 'center', marginBottom: Spacing.md, ...Shadow.md,
+    overflow: 'hidden',
   },
   appName: { color: Colors.text, fontSize: Fonts.sizes.xl, fontWeight: '800' },
   version: { color: Colors.textMuted, fontSize: Fonts.sizes.sm, marginTop: 4 },

@@ -19,6 +19,20 @@ const INITIAL_FORM: ProductFormData = {
   fix_price: '', stock: '0', picture: null,
 };
 
+const InputField = ({ label, value, onChangeText, keyboardType, placeholder, required }: any) => (
+  <View style={styles.field}>
+    <Text style={styles.label}>{label}{required && <Text style={styles.required}> *</Text>}</Text>
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      keyboardType={keyboardType || 'default'}
+      placeholder={placeholder}
+      placeholderTextColor={Colors.textMuted}
+    />
+  </View>
+);
+
 export default function ProductFormModal() {
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
@@ -28,8 +42,6 @@ export default function ProductFormModal() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
-  const [showNewCat, setShowNewCat] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -86,6 +98,9 @@ export default function ProductFormModal() {
     if (!form.buy_price || !form.sell_price) {
       Toast.show({ type: 'error', text1: 'Harga beli & jual wajib diisi' }); return;
     }
+    if (form.category_id === null) {
+      Toast.show({ type: 'error', text1: 'Kategori wajib dipilih' }); return;
+    }
     setSaving(true);
     try {
       if (isEdit && productId) {
@@ -103,35 +118,6 @@ export default function ProductFormModal() {
     }
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategory.trim()) return;
-    try {
-      const id = await insertCategory(newCategory.trim());
-      const cats = await getActiveCategories();
-      setCategories(cats);
-      setForm((prev) => ({ ...prev, category_id: id }));
-      setNewCategory('');
-      setShowNewCat(false);
-      Toast.show({ type: 'success', text1: 'Kategori ditambahkan' });
-    } catch (e: any) {
-      Toast.show({ type: 'error', text1: 'Gagal menambah kategori', text2: e.message });
-    }
-  };
-
-  const InputField = ({ label, value, onChangeText, keyboardType, placeholder, required }: any) => (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}{required && <Text style={styles.required}> *</Text>}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType || 'default'}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
-      />
-    </View>
-  );
-
   if (loading) return (
     <SafeAreaView style={styles.safe}>
       <ActivityIndicator color={Colors.primary} size="large" style={styles.loader} />
@@ -140,7 +126,7 @@ export default function ProductFormModal() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 30}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -160,7 +146,7 @@ export default function ProductFormModal() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Informasi Dasar</Text>
             {/* SKU */}
@@ -188,7 +174,7 @@ export default function ProductFormModal() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Kategori</Text>
+            <Text style={styles.sectionTitle}>Kategori <Text style={styles.required}>*</Text></Text>
             <View style={styles.catGrid}>
               {categories.map((cat) => (
                 <TouchableOpacity
@@ -199,28 +185,7 @@ export default function ProductFormModal() {
                   <Text style={[styles.catChipText, form.category_id === cat.id && styles.catChipTextActive]}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity
-                style={styles.addCatBtn}
-                onPress={() => setShowNewCat(!showNewCat)}
-              >
-                <Ionicons name="add" size={14} color={Colors.primary} />
-                <Text style={styles.addCatText}>Baru</Text>
-              </TouchableOpacity>
             </View>
-            {showNewCat && (
-              <View style={styles.newCatRow}>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  value={newCategory}
-                  onChangeText={setNewCategory}
-                  placeholder="Nama kategori baru"
-                  placeholderTextColor={Colors.textMuted}
-                />
-                <TouchableOpacity style={styles.generateBtn} onPress={handleAddCategory}>
-                  <Ionicons name="checkmark" size={18} color={Colors.accentGreen} />
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
 
           <View style={styles.section}>

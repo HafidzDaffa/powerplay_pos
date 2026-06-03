@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "POS PowerPlay",
-    "slug": "pos-powerplay",
+    "name": "Dependor",
+    "slug": "dependor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "scheme": "pospowerplay",
+    "newArchEnabled": false,
+    "scheme": "dependor",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pospowerplay.app",
+      "bundleIdentifier": "com.dependor.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Digunakan untuk scan barcode produk",
-        "NSPhotoLibraryUsageDescription": "Digunakan untuk menyimpan gambar barcode"
+        "NSCameraUsageDescription": "Digunakan untuk scan QR Code produk",
+        "NSPhotoLibraryUsageDescription": "Digunakan untuk menyimpan gambar QR Code"
       }
     },
     "android": {
@@ -26,7 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6C63FF"
       },
-      "package": "com.pospowerplay.app",
+      "package": "com.dependor.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -42,9 +42,10 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "POS PowerPlay memerlukan akses kamera untuk scan barcode produk."
+          "cameraPermission": "Dependor memerlukan akses kamera untuk scan QR Code produk."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

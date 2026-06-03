@@ -23,13 +23,13 @@ export default function BarcodeViewModal() {
     try {
       if (!viewShotRef.current) throw new Error('Ref tidak ditemukan');
       const uri = await viewShotRef.current.capture();
-      const filename = `barcode_${sku}_${Date.now()}.png`;
+      const filename = `qrcode_${sku}_${Date.now()}.png`;
       const destUri = (documentDirectory ?? '') + filename;
       await copyAsync({ from: uri, to: destUri });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(destUri, { mimeType: 'image/png', dialogTitle: `Barcode ${sku}` });
+        await Sharing.shareAsync(destUri, { mimeType: 'image/png', dialogTitle: `QR Code ${sku}` });
       }
-      Toast.show({ type: 'success', text1: 'Barcode disimpan!', text2: filename });
+      Toast.show({ type: 'success', text1: 'QR Code disimpan!', text2: filename });
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Gagal menyimpan', text2: e.message });
     } finally {
@@ -45,7 +45,7 @@ export default function BarcodeViewModal() {
           <Ionicons name="close" size={24} color={Colors.text} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Barcode Produk</Text>
+          <Text style={styles.headerTitle}>QR Code Produk</Text>
           <Text style={styles.headerSub}>{name}</Text>
         </View>
         <TouchableOpacity
@@ -58,12 +58,12 @@ export default function BarcodeViewModal() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Barcode Card */}
+        {/* QR Code Card */}
         <View style={styles.barcodeCard}>
           <Text style={styles.productName}>{name}</Text>
           <Text style={styles.skuLabel}>SKU: {sku}</Text>
 
-          {/* Captured barcode */}
+          {/* Captured QR Code */}
           <ViewShot
             ref={viewShotRef}
             options={{ format: 'png', quality: 1.0 }}
@@ -72,8 +72,8 @@ export default function BarcodeViewModal() {
             <View style={styles.barcodeWrapper}>
               <BarcodeGenerator
                 value={sku || 'DEFAULT'}
-                width={280}
-                height={90}
+                width={220}
+                height={220}
                 showText
                 background="#FFFFFF"
                 color="#000000"
@@ -93,7 +93,7 @@ export default function BarcodeViewModal() {
               <Ionicons name="download-outline" size={28} color={Colors.accentGreen} />
             </View>
             <Text style={styles.actionTitle}>Unduh PNG</Text>
-            <Text style={styles.actionSub}>Simpan barcode sebagai gambar</Text>
+            <Text style={styles.actionSub}>Simpan QR Code sebagai gambar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -113,7 +113,7 @@ export default function BarcodeViewModal() {
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
           <Text style={styles.infoText}>
-            Barcode ini menggunakan standar Code-128B dan dapat dipindai oleh semua scanner barcode modern.
+            QR Code ini berisi kode SKU produk dan sangat akurat serta responsif saat dipindai langsung dari layar perangkat menggunakan kamera.
           </Text>
         </View>
       </ScrollView>

@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Cashflow DB Queries
+// Dependor — Cashflow DB Queries
 // ============================================================
 import { getDatabase } from './database';
 import { Cashflow, CashflowFormData } from '../types';

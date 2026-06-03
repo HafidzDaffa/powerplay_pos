@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Import Service
+// Dependor — Import Service
 // Uses expo-file-system/legacy for SDK 54 compatibility
 // ============================================================
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';

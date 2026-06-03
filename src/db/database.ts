@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — SQLite Database Initialization
+// Dependor — SQLite Database Initialization
 // ============================================================
 import * as SQLite from 'expo-sqlite';
 
@@ -7,7 +7,7 @@ let db: SQLite.SQLiteDatabase | null = null;
 
 export function getDatabase(): SQLite.SQLiteDatabase {
   if (!db) {
-    db = SQLite.openDatabaseSync('pos_powerplay.db');
+    db = SQLite.openDatabaseSync('dependor.db');
   }
   return db;
 }
@@ -115,7 +115,7 @@ export async function initDatabase(): Promise<void> {
       ON transaction_items(transaction_id);
   `);
 
-  console.log('[DB] POS PowerPlay database initialized ✓');
+  console.log('[DB] Dependor database initialized ✓');
 }
 
 /**

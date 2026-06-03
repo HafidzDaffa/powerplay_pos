@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Products DB Queries
+// Dependor — Products DB Queries
 // ============================================================
 import { getDatabase } from './database';
 import { Product, ProductFormData } from '../types';

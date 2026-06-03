@@ -1,6 +1,5 @@
 // ============================================================
-// POS PowerPlay — Barcode Service
-// Uses expo-file-system/legacy for SDK 54 compatibility
+// Dependor — Barcode Service
 // ============================================================
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { shareBarcodePNG } from './exportService';

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, RefreshControl, ActivityIndicator,
+  FlatList, RefreshControl, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ const DATE_FILTERS: { key: DateRangeFilter; label: string }[] = [
 ];
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [filter, setFilter] = useState<DateRangeFilter>('today');
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentTxns, setRecentTxns] = useState<Transaction[]>([]);
@@ -40,7 +42,11 @@ export default function DashboardScreen() {
     }
   }, [filter]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
@@ -87,8 +93,17 @@ export default function DashboardScreen() {
             <Text style={styles.greeting}>Selamat datang! 👋</Text>
             <Text style={styles.title}>Dashboard POS</Text>
           </View>
-          <View style={styles.logoWrap}>
-            <Ionicons name="storefront" size={28} color={Colors.primary} />
+          <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+            <TouchableOpacity
+              style={styles.historyHeaderBtn}
+              onPress={() => router.push('/modals/history')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <View style={styles.logoWrap}>
+              <Image source={require('../../assets/logo.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+            </View>
           </View>
         </View>
 
@@ -142,7 +157,12 @@ export default function DashboardScreen() {
                 </View>
               ) : (
                 recentTxns.map((t) => (
-                  <View key={t.id} style={styles.txnRow}>
+                  <TouchableOpacity
+                    key={t.id}
+                    style={styles.txnRow}
+                    onPress={() => router.push({ pathname: '/modals/checkout', params: { transactionId: String(t.id), fromHistory: 'true' } })}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.txnIcon}>
                       <Ionicons name="receipt-outline" size={18} color={Colors.primary} />
                     </View>
@@ -154,7 +174,7 @@ export default function DashboardScreen() {
                       <Text style={styles.txnAmount}>{formatIDR(t.gross_amount)}</Text>
                       <Text style={styles.txnItems}>{t.total_items} item</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               )}
             </View>
@@ -185,6 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + '22',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   filterRow: {
     flexDirection: 'row',
@@ -284,4 +305,14 @@ const styles = StyleSheet.create({
   txnRight: { alignItems: 'flex-end' },
   txnAmount: { color: Colors.accentGreen, fontWeight: '700', fontSize: Fonts.sizes.sm },
   txnItems: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  historyHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary + '33',
+  },
 });

@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — TypeScript Type Definitions
+// Dependor — TypeScript Type Definitions
 // ============================================================
 
 export interface Category {

@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Dashboard KPI Queries
+// Dependor — Dashboard KPI Queries
 // All queries strictly filter WHERE deleted_at IS NULL
 // ============================================================
 import { getDatabase } from './database';

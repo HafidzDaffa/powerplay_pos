@@ -1,5 +1,5 @@
 // ============================================================
-// POS PowerPlay — Export Service (JSON, .db, Excel with barcode)
+// Dependor — Export Service (JSON, .db, Excel with barcode)
 // Uses expo-file-system/legacy for SDK 54 compatibility
 // ============================================================
 import {
@@ -48,7 +48,7 @@ export async function exportDatabaseAsJSON(): Promise<void> {
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, {
       mimeType: 'application/json',
-      dialogTitle: 'Ekspor Database POS PowerPlay',
+      dialogTitle: 'Ekspor Database Dependor',
     });
   }
 }
@@ -56,8 +56,8 @@ export async function exportDatabaseAsJSON(): Promise<void> {
 // ── Raw .db File Export ───────────────────────────────────────────────────────
 export async function exportDatabaseFile(): Promise<void> {
   // SQLite files stored in SQLite/ subdirectory of documentDirectory
-  const dbPath = (documentDirectory ?? '') + 'SQLite/pos_powerplay.db';
-  const destPath = (documentDirectory ?? '') + `pos_powerplay_${Date.now()}.db`;
+  const dbPath = (documentDirectory ?? '') + 'SQLite/dependor.db';
+  const destPath = (documentDirectory ?? '') + `dependor_${Date.now()}.db`;
 
   const info = await getInfoAsync(dbPath);
   if (!info.exists) {
@@ -69,7 +69,7 @@ export async function exportDatabaseFile(): Promise<void> {
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(destPath, {
       mimeType: 'application/octet-stream',
-      dialogTitle: 'Ekspor File .db POS PowerPlay',
+      dialogTitle: 'Ekspor File .db Dependor',
     });
   }
 }
@@ -125,7 +125,7 @@ export async function exportProductsToExcel(): Promise<void> {
   const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
   const totalAsset = products.reduce((sum, p) => sum + p.buy_price * p.stock, 0);
   const summaryData = [
-    ['Ringkasan Inventori POS PowerPlay'],
+    ['Ringkasan Inventori Dependor'],
     [],
     ['Tanggal Ekspor', new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })],
     ['Total Produk Aktif', products.length],
@@ -167,3 +167,78 @@ export async function shareBarcodePNG(base64: string, sku: string): Promise<void
     });
   }
 }
+
+// ── Excel Export for Transactions (filtered list) ──────────────────────────────
+export async function exportTransactionsToExcel(transactions: any[]): Promise<void> {
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Transactions Data
+  const headers = [
+    'No', 'Nomor Invoice', 'Tanggal & Waktu', 'Total Item', 'Total Penjualan (Rp)',
+    'Laba Bersih (Rp)', 'Status',
+  ];
+
+  const rows = transactions.map((t, i) => {
+    const status = t.deleted_at ? 'DIBATALKAN / VOID' : 'SUKSES';
+    return [
+      i + 1,
+      t.invoice_number,
+      t.created_at,
+      t.total_items,
+      t.gross_amount,
+      t.net_profit,
+      status,
+    ];
+  });
+
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 22 }, { wch: 22 }, { wch: 12 },
+    { wch: 20 }, { wch: 20 }, { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Transaksi');
+
+  // ── Sheet 2: Summary / Ringkasan
+  const activeTxns = transactions.filter(t => !t.deleted_at);
+  const totalGross = activeTxns.reduce((sum, t) => sum + t.gross_amount, 0);
+  const totalNet = activeTxns.reduce((sum, t) => sum + t.net_profit, 0);
+  const totalItems = activeTxns.reduce((sum, t) => sum + t.total_items, 0);
+  const totalVoid = transactions.length - activeTxns.length;
+
+  const summaryData = [
+    ['Laporan Penjualan Dependor'],
+    [],
+    ['Tanggal Ekspor', new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })],
+    ['Total Transaksi Diekspor', transactions.length],
+    ['Transaksi Sukses', activeTxns.length],
+    ['Transaksi Dibatalkan (Void)', totalVoid],
+    ['Total Item Terjual (Sukses)', totalItems],
+    ['Total Penjualan Kotor (Sukses)', formatIDR(totalGross)],
+    ['Total Laba Bersih (Sukses)', formatIDR(totalNet)],
+    [],
+    ['Catatan:', 'Laba bersih dihitung dari harga jual dikurangi harga beli awal produk.'],
+  ];
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [{ wch: 32 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+  // Write base64 and share
+  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  const filename = `riwayat_transaksi_${Date.now()}.xlsx`;
+  const uri = (documentDirectory ?? '') + filename;
+
+  await writeAsStringAsync(uri, wbout, { encoding: EncodingType.Base64 });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      dialogTitle: 'Ekspor Riwayat Transaksi ke Excel',
+    });
+  }
+}
+
