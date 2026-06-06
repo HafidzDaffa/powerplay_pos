@@ -62,10 +62,13 @@ export async function importDatabaseFromJSON(): Promise<string> {
   for (const t of dump.transactions ?? []) {
     await db.runAsync(
       `INSERT OR IGNORE INTO transactions
-       (id, invoice_number, total_items, gross_amount, net_profit, created_at, updated_at, deleted_at)
-       VALUES (?,?,?,?,?,?,?,?)`,
-      [t.id, t.invoice_number, t.total_items, t.gross_amount, t.net_profit,
-       t.created_at, t.updated_at, t.deleted_at]
+       (id, invoice_number, total_items, gross_amount, net_profit, type, status, customer_name, customer_phone, customer_address, shipping_fee, created_at, updated_at, deleted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        t.id, t.invoice_number, t.total_items, t.gross_amount, t.net_profit,
+        t.type ?? 'OFFLINE', t.status ?? 'SUCCESS', t.customer_name, t.customer_phone, t.customer_address,
+        t.shipping_fee ?? 0, t.created_at, t.updated_at, t.deleted_at
+      ]
     );
   }
 

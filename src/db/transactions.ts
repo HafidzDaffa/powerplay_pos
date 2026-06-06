@@ -61,7 +61,13 @@ export async function getRecentTransactions(limit = 10): Promise<Transaction[]> 
  * Decreases product stock for each item.
  */
 export async function createTransaction(
-  cartItems: CartItem[]
+  cartItems: CartItem[],
+  type: 'OFFLINE' | 'ONLINE' = 'OFFLINE',
+  status: 'SUCCESS' | 'PENDING' = 'SUCCESS',
+  customerName: string | null = null,
+  customerPhone: string | null = null,
+  customerAddress: string | null = null,
+  shippingFee: number = 0
 ): Promise<{ transactionId: number; invoiceNumber: string }> {
   const db = getDatabase();
   const invoiceNumber = generateInvoiceNumber();
@@ -79,9 +85,9 @@ export async function createTransaction(
 
   // Insert transaction header
   const txnResult = await db.runAsync(
-    `INSERT INTO transactions (invoice_number, total_items, gross_amount, net_profit, updated_at)
-     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    [invoiceNumber, totalItems, grossAmount, netProfit]
+    `INSERT INTO transactions (invoice_number, total_items, gross_amount, net_profit, type, status, customer_name, customer_phone, customer_address, shipping_fee, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    [invoiceNumber, totalItems, grossAmount, netProfit, type, status, customerName, customerPhone, customerAddress, shippingFee]
   );
 
   const transactionId = txnResult.lastInsertRowId;
@@ -197,4 +203,15 @@ export async function getAllTransactionsForDump(): Promise<Transaction[]> {
 export async function getAllTransactionItemsForDump(): Promise<TransactionItem[]> {
   const db = getDatabase();
   return db.getAllAsync<TransactionItem>(`SELECT * FROM transaction_items ORDER BY id ASC`);
+}
+
+export async function markTransactionSuccess(transactionId: number): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `UPDATE transactions
+     SET status = 'SUCCESS',
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [transactionId]
+  );
 }

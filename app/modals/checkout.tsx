@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share,
+  ActivityIndicator, Share, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import ViewShot from 'react-native-view-shot';
 import { documentDirectory, copyAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '@/constants/theme';
-import { getTransactionWithItems, voidTransaction } from '@/db/transactions';
+import { getTransactionWithItems, voidTransaction, markTransactionSuccess } from '@/db/transactions';
 import { TransactionWithItems } from '@/types';
 import { formatIDR, formatDateTime } from '@/utils/currency';
 import Toast from 'react-native-toast-message';
@@ -25,6 +25,9 @@ export default function CheckoutModal() {
   const [confirmVoid, setConfirmVoid] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const viewShotRef = useRef<any>(null);
+  const addressViewShotRef = useRef<any>(null);
+  const [markingSuccess, setMarkingSuccess] = useState(false);
+  const [exportingAddress, setExportingAddress] = useState(false);
 
   const loadTransactionData = () => {
     if (transactionId) {
@@ -60,7 +63,13 @@ export default function CheckoutModal() {
 
       receiptText += `----------------------------\n`;
       receiptText += `Total Item  : ${txn.total_items}\n`;
-      receiptText += `TOTAL BAYAR : ${formatIDR(txn.gross_amount)}\n`;
+      if (txn.type === 'ONLINE') {
+        receiptText += `Subtotal    : ${formatIDR(txn.gross_amount)}\n`;
+        receiptText += `Ongkir      : ${formatIDR(txn.shipping_fee ?? 0)}\n`;
+        receiptText += `TOTAL BAYAR : ${formatIDR(txn.gross_amount + (txn.shipping_fee ?? 0))}\n`;
+      } else {
+        receiptText += `TOTAL BAYAR : ${formatIDR(txn.gross_amount)}\n`;
+      }
       receiptText += `============================\n`;
       receiptText += ` Terima Kasih Telah Berbelanja!\n`;
       receiptText += `============================`;
@@ -89,6 +98,43 @@ export default function CheckoutModal() {
       Toast.show({ type: 'error', text1: 'Gagal mengekspor struk', text2: e.message });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleShareAddressImage = async () => {
+    setExportingAddress(true);
+    try {
+      if (!addressViewShotRef.current) throw new Error('Ref tidak ditemukan');
+      const uri = await addressViewShotRef.current.capture();
+      const filename = `label_alamat_${txn?.invoice_number}_${Date.now()}.png`;
+      const destUri = (documentDirectory ?? '') + filename;
+      await copyAsync({ from: uri, to: destUri });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, { mimeType: 'image/png', dialogTitle: `Label Alamat ${txn?.invoice_number}` });
+      }
+      Toast.show({ type: 'success', text1: 'Label Alamat berhasil diekspor!', text2: filename });
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Gagal mengekspor label alamat', text2: e.message });
+    } finally {
+      setExportingAddress(false);
+    }
+  };
+
+  const handleMarkSuccess = async () => {
+    if (!txn) return;
+    setMarkingSuccess(true);
+    try {
+      await markTransactionSuccess(txn.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Pembayaran Lunas!',
+        text2: `Invoice ${txn.invoice_number} telah ditandai sebagai sukses.`,
+      });
+      loadTransactionData();
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Gagal memperbarui status', text2: e.message });
+    } finally {
+      setMarkingSuccess(false);
     }
   };
 
@@ -128,16 +174,22 @@ export default function CheckoutModal() {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.successIcon, txn.deleted_at && styles.voidIcon]}>
+        <View style={[
+          styles.successIcon, 
+          txn.deleted_at && styles.voidIcon,
+          txn.status === 'PENDING' && styles.pendingIcon
+        ]}>
           <Ionicons
-            name={txn.deleted_at ? 'close-circle' : 'checkmark-circle'}
+            name={txn.deleted_at ? 'close-circle' : txn.status === 'PENDING' ? 'time' : 'checkmark-circle'}
             size={38}
-            color={txn.deleted_at ? Colors.error : Colors.accentGreen}
+            color={txn.deleted_at ? Colors.error : txn.status === 'PENDING' ? Colors.warning : Colors.accentGreen}
           />
         </View>
         <Text style={styles.successTitle}>
           {txn.deleted_at
             ? 'Transaksi Dibatalkan (Void)'
+            : txn.status === 'PENDING'
+            ? 'Pemesanan Pending (Belum Bayar)'
             : fromHistory === 'true'
             ? 'Detail Transaksi'
             : 'Pembayaran Berhasil!'}
@@ -160,6 +212,12 @@ export default function CheckoutModal() {
                 <Text style={styles.voidBannerText}>TRANSAKSI BATAL / VOID</Text>
               </View>
             )}
+            {txn.status === 'PENDING' && (
+              <View style={styles.pendingBanner}>
+                <Ionicons name="time" size={18} color={Colors.warning} />
+                <Text style={styles.pendingBannerText}>BELUM BAYAR / PENDING</Text>
+              </View>
+            )}
 
             <View style={styles.receiptHeader}>
               <Text style={styles.receiptBrand}>Dependor</Text>
@@ -175,6 +233,29 @@ export default function CheckoutModal() {
               <Text style={styles.metaLabel}>Tanggal</Text>
               <Text style={styles.metaValue}>{formatDateTime(txn.created_at)}</Text>
             </View>
+
+            {txn.type === 'ONLINE' && (
+              <>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Tipe Kasir</Text>
+                  <Text style={[styles.metaValue, { color: Colors.primary, fontWeight: '700' }]}>Online Shop</Text>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Penerima</Text>
+                  <Text style={styles.metaValue}>{txn.customer_name ?? '-'}</Text>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>No. Hp</Text>
+                  <Text style={styles.metaValue}>{txn.customer_phone ?? '-'}</Text>
+                </View>
+                <View style={[styles.metaRow, { height: 'auto', flexDirection: 'column', alignItems: 'flex-start' }]}>
+                  <Text style={[styles.metaLabel, { marginBottom: 2 }]}>Alamat Pengiriman</Text>
+                  <Text style={[styles.metaValue, { textAlign: 'left', alignSelf: 'stretch' }]}>
+                    {txn.customer_address ?? '-'}
+                  </Text>
+                </View>
+              </>
+            )}
 
             <View style={styles.dividerDot} />
 
@@ -200,12 +281,31 @@ export default function CheckoutModal() {
               <Text style={styles.summaryLabel}>Total Item</Text>
               <Text style={styles.summaryValue}>{txn.total_items} item</Text>
             </View>
-            <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-              <Text style={styles.totalLabel}>TOTAL BAYAR</Text>
-              <Text style={[styles.totalValue, txn.deleted_at && styles.voidTotalValue]}>
-                {formatIDR(txn.gross_amount)}
-              </Text>
-            </View>
+            {txn.type === 'ONLINE' ? (
+              <>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Subtotal Produk</Text>
+                  <Text style={styles.summaryValue}>{formatIDR(txn.gross_amount)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Ongkos Kirim</Text>
+                  <Text style={styles.summaryValue}>{formatIDR(txn.shipping_fee ?? 0)}</Text>
+                </View>
+                <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <Text style={styles.totalLabel}>TOTAL BAYAR</Text>
+                  <Text style={[styles.totalValue, txn.deleted_at && styles.voidTotalValue]}>
+                    {formatIDR(txn.gross_amount + (txn.shipping_fee ?? 0))}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.totalLabel}>TOTAL BAYAR</Text>
+                <Text style={[styles.totalValue, txn.deleted_at && styles.voidTotalValue]}>
+                  {formatIDR(txn.gross_amount)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.dividerDot} />
 
@@ -214,6 +314,112 @@ export default function CheckoutModal() {
             </Text>
           </View>
         </ViewShot>
+
+        {/* Shipping Label Visual container (16x10 ratio) */}
+        {txn.type === 'ONLINE' && txn.status === 'SUCCESS' && (
+          <View style={styles.shippingSection}>
+            <Text style={styles.shippingSectionTitle}>Label Alamat Pengiriman (16x10)</Text>
+            <ViewShot
+              ref={addressViewShotRef}
+              options={{ format: 'png', quality: 1.0 }}
+              style={styles.addressViewShotContainer}
+            >
+              <View style={styles.shippingLabelCard}>
+                {/* Header */}
+                <View style={styles.labelHeader}>
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    style={styles.labelHeaderImage}
+                    resizeMode="contain"
+                  />
+                </View>
+
+                {/* Inner White Box */}
+                <View style={styles.labelInnerCard}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.labelTextKey}>Nama Penerima</Text>
+                    <Text style={styles.labelTextColon}>:</Text>
+                    <Text style={styles.labelTextVal}>{txn.customer_name}</Text>
+                  </View>
+                  
+                  <View style={styles.labelRow}>
+                    <Text style={styles.labelTextKey}>No. Hp</Text>
+                    <Text style={styles.labelTextColon}>:</Text>
+                    <Text style={styles.labelTextVal}>{txn.customer_phone}</Text>
+                  </View>
+
+                  <View style={styles.labelRow}>
+                    <Text style={styles.labelTextKey}>Alamat</Text>
+                    <Text style={styles.labelTextColon}>:</Text>
+                    <Text style={[styles.labelTextVal, { lineHeight: 14 }]} numberOfLines={3}>
+                      {txn.customer_address}
+                    </Text>
+                  </View>
+
+                  <View style={styles.labelDottedLine} />
+
+                  <View style={styles.labelRow}>
+                    <Text style={styles.labelTextKey}>Isi Paket</Text>
+                    <Text style={styles.labelTextColon}>:</Text>
+                    <Text style={styles.labelTextVal} numberOfLines={2}>
+                      {txn.items.map(it => `${it.product_name ?? `Produk #${it.product_id}`} (${it.quantity}pcs)`).join(', ')}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Footer green border inner elements */}
+                <View style={styles.labelFooter}>
+                  <Text style={styles.labelFooterLeft}>Thank's for purchasing !</Text>
+                  <View style={styles.labelFooterRight}>
+                    <View style={styles.labelFooterItem}>
+                      <Ionicons name="logo-instagram" size={10} color={Colors.white} />
+                      <Text style={styles.labelFooterText}>dependor</Text>
+                    </View>
+                    <View style={styles.labelFooterItem}>
+                      <Ionicons name="logo-whatsapp" size={10} color={Colors.white} />
+                      <Text style={styles.labelFooterText}>(+62) 822-4005-6018</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ViewShot>
+
+            {/* Export Shipping Label Button */}
+            <TouchableOpacity
+              style={styles.exportAddressBtn}
+              onPress={handleShareAddressImage}
+              disabled={exportingAddress}
+            >
+              {exportingAddress ? (
+                <ActivityIndicator size="small" color={Colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={18} color={Colors.white} />
+                  <Text style={styles.exportAddressBtnText}>Ekspor Gambar Label Alamat</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Mark Success Button for Pending Online Shop Orders */}
+        {txn.status === 'PENDING' && !txn.deleted_at && (
+          <TouchableOpacity
+            style={styles.payPendingBtn}
+            onPress={handleMarkSuccess}
+            activeOpacity={0.8}
+            disabled={markingSuccess}
+          >
+            {markingSuccess ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={18} color={Colors.white} />
+                <Text style={styles.payPendingBtnText}>Tandai Pembayaran Sukses (Lunas)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Share & Export Options */}
         <View style={styles.actionRow}>
@@ -536,4 +742,164 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   newTxnText: { color: Colors.white, fontWeight: '800', fontSize: Fonts.sizes.sm },
+
+  // Pending State Styles
+  pendingIcon: {
+    backgroundColor: Colors.warning + '22',
+  },
+  pendingBanner: {
+    backgroundColor: Colors.warning + '18',
+    borderColor: Colors.warning + '44',
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  pendingBannerText: {
+    color: Colors.warning,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  payPendingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.base,
+    gap: Spacing.xs,
+    ...Shadow.md,
+  },
+  payPendingBtnText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: Fonts.sizes.sm,
+  },
+
+  // Shipping Section / Label Styles
+  shippingSection: {
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+    alignItems: 'center',
+  },
+  shippingSectionTitle: {
+    color: Colors.text,
+    fontSize: Fonts.sizes.sm,
+    fontWeight: '700',
+    marginBottom: Spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  addressViewShotContainer: {
+    backgroundColor: Colors.background,
+    padding: 4,
+  },
+  shippingLabelCard: {
+    backgroundColor: '#115F3B',
+    width: 480,
+    height: 300,
+    padding: 12,
+    borderRadius: Radius.lg,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  labelHeader: {
+    height: 48,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelHeaderImage: {
+    width: '80%',
+    height: '100%',
+  },
+  labelInnerCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'space-between',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  labelTextKey: {
+    width: 100,
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  labelTextColon: {
+    width: 12,
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  labelTextVal: {
+    flex: 1,
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  labelDottedLine: {
+    borderStyle: 'dashed',
+    borderWidth: 0.5,
+    borderColor: '#CCCCCC',
+    marginVertical: 4,
+    height: 1,
+  },
+  labelFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  labelFooterLeft: {
+    color: Colors.white,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  labelFooterRight: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  labelFooterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  labelFooterText: {
+    color: Colors.white,
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  exportAddressBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accentGreen,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.base,
+    gap: Spacing.xs,
+    width: '100%',
+    ...Shadow.md,
+  },
+  exportAddressBtnText: {
+    color: Colors.white,
+    fontWeight: '800',
+    fontSize: Fonts.sizes.sm,
+  },
 });

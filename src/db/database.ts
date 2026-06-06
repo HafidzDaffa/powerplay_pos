@@ -62,11 +62,24 @@ export async function initDatabase(): Promise<void> {
       total_items    INTEGER NOT NULL,
       gross_amount   REAL NOT NULL,
       net_profit     REAL NOT NULL,
+      type           TEXT DEFAULT 'OFFLINE',
+      status         TEXT DEFAULT 'SUCCESS',
+      customer_name  TEXT NULL,
+      customer_phone TEXT NULL,
+      customer_address TEXT NULL,
+      shipping_fee   REAL DEFAULT 0,
       created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
       deleted_at     DATETIME DEFAULT NULL
     );
   `);
+
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'OFFLINE';"); } catch (e) {}
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'SUCCESS';"); } catch (e) {}
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN customer_name TEXT NULL;"); } catch (e) {}
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN customer_phone TEXT NULL;"); } catch (e) {}
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN customer_address TEXT NULL;"); } catch (e) {}
+  try { await database.execAsync("ALTER TABLE transactions ADD COLUMN shipping_fee REAL DEFAULT 0;"); } catch (e) {}
 
   // ── Transaction Items ─────────────────────────────────────────
   await database.execAsync(`

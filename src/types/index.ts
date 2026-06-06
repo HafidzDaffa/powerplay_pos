@@ -33,6 +33,12 @@ export interface Transaction {
   total_items: number;
   gross_amount: number;
   net_profit: number;
+  type: 'OFFLINE' | 'ONLINE';
+  status: 'SUCCESS' | 'PENDING';
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  shipping_fee: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

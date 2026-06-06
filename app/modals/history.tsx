@@ -29,6 +29,8 @@ export default function HistoryModal() {
   const [filteredTxns, setFilteredTxns] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<DateFilterType>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'offline' | 'online'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending'>('all');
   
   // Date Range States
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -77,7 +79,9 @@ export default function HistoryModal() {
     search: string,
     type: DateFilterType,
     start: string | null,
-    end: string | null
+    end: string | null,
+    txnType: 'all' | 'offline' | 'online',
+    txnStatus: 'all' | 'success' | 'pending'
   ) => {
     let filtered = [...allTxns];
 
@@ -113,6 +117,20 @@ export default function HistoryModal() {
       });
     }
 
+    // 3. Transaction Type Filter
+    if (txnType === 'offline') {
+      filtered = filtered.filter((t) => t.type === 'OFFLINE');
+    } else if (txnType === 'online') {
+      filtered = filtered.filter((t) => t.type === 'ONLINE');
+    }
+
+    // 4. Transaction Status Filter
+    if (txnStatus === 'success') {
+      filtered = filtered.filter((t) => t.status === 'SUCCESS');
+    } else if (txnStatus === 'pending') {
+      filtered = filtered.filter((t) => t.status === 'PENDING');
+    }
+
     setFilteredTxns(filtered);
   }, []);
 
@@ -120,14 +138,14 @@ export default function HistoryModal() {
     try {
       const allTxns = await getActiveTransactions();
       setTxns(allTxns);
-      applyFilters(allTxns, searchQuery, filterType, startDate, endDate);
+      applyFilters(allTxns, searchQuery, filterType, startDate, endDate, typeFilter, statusFilter);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery, filterType, startDate, endDate, applyFilters]);
+  }, [searchQuery, filterType, startDate, endDate, typeFilter, statusFilter, applyFilters]);
 
   useFocusEffect(
     useCallback(() => {
@@ -137,7 +155,7 @@ export default function HistoryModal() {
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    applyFilters(txns, text, filterType, startDate, endDate);
+    applyFilters(txns, text, filterType, startDate, endDate, typeFilter, statusFilter);
   };
 
   const handleSelectFilterType = (type: DateFilterType) => {
@@ -160,7 +178,7 @@ export default function HistoryModal() {
       setEndDate(null);
     }
 
-    applyFilters(txns, searchQuery, type, startVal, endVal);
+    applyFilters(txns, searchQuery, type, startVal, endVal, typeFilter, statusFilter);
   };
 
   const handleSelectCustomDate = (dateString: string) => {
@@ -168,7 +186,7 @@ export default function HistoryModal() {
       // Start a brand new date range selection
       setStartDate(dateString);
       setEndDate(null);
-      applyFilters(txns, searchQuery, 'custom', dateString, null);
+      applyFilters(txns, searchQuery, 'custom', dateString, null, typeFilter, statusFilter);
     } else {
       // Second tap defines range end
       const d1 = new Date(startDate);
@@ -178,12 +196,22 @@ export default function HistoryModal() {
         // Automatically swap if end is chronologically before start
         setStartDate(dateString);
         setEndDate(startDate);
-        applyFilters(txns, searchQuery, 'custom', dateString, startDate);
+        applyFilters(txns, searchQuery, 'custom', dateString, startDate, typeFilter, statusFilter);
       } else {
         setEndDate(dateString);
-        applyFilters(txns, searchQuery, 'custom', startDate, dateString);
+        applyFilters(txns, searchQuery, 'custom', startDate, dateString, typeFilter, statusFilter);
       }
     }
+  };
+
+  const handleSelectTypeFilter = (type: 'all' | 'offline' | 'online') => {
+    setTypeFilter(type);
+    applyFilters(txns, searchQuery, filterType, startDate, endDate, type, statusFilter);
+  };
+
+  const handleSelectStatusFilter = (status: 'all' | 'success' | 'pending') => {
+    setStatusFilter(status);
+    applyFilters(txns, searchQuery, filterType, startDate, endDate, typeFilter, status);
   };
 
   const handleExportExcel = async () => {
@@ -230,7 +258,31 @@ export default function HistoryModal() {
           <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
         </View>
         <View style={styles.txnInfo}>
-          <Text style={styles.invoiceNumber}>{item.invoice_number}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Text style={styles.invoiceNumber}>{item.invoice_number}</Text>
+            <View style={[
+              styles.typeBadge,
+              item.type === 'ONLINE' ? styles.onlineBadge : styles.offlineBadge
+            ]}>
+              <Text style={[
+                styles.typeBadgeText,
+                item.type === 'ONLINE' ? styles.onlineBadgeText : styles.offlineBadgeText
+              ]}>
+                {item.type === 'ONLINE' ? 'Online' : 'Toko'}
+              </Text>
+            </View>
+            <View style={[
+              styles.statusBadge,
+              item.status === 'SUCCESS' ? styles.successBadge : styles.pendingBadge
+            ]}>
+              <Text style={[
+                styles.statusBadgeText,
+                item.status === 'SUCCESS' ? styles.successBadgeText : styles.pendingBadgeText
+              ]}>
+                {item.status === 'SUCCESS' ? 'Sukses' : 'Pending'}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.txnDate}>{formatDateTime(item.created_at)}</Text>
           <Text style={styles.txnItemsCount}>{item.total_items} item terjual</Text>
         </View>
@@ -339,6 +391,68 @@ export default function HistoryModal() {
               <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Transaction Type Filter Tabs */}
+        <View style={styles.typeFilterRow}>
+          <TouchableOpacity
+            style={[styles.typeBtn, typeFilter === 'all' && styles.typeBtnActive]}
+            onPress={() => handleSelectTypeFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.typeBtnText, typeFilter === 'all' && styles.typeBtnTextActive]}>
+              Semua
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.typeBtn, typeFilter === 'offline' && styles.typeBtnActive]}
+            onPress={() => handleSelectTypeFilter('offline')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.typeBtnText, typeFilter === 'offline' && styles.typeBtnTextActive]}>
+              Kasir Toko (Offline)
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.typeBtn, typeFilter === 'online' && styles.typeBtnActive]}
+            onPress={() => handleSelectTypeFilter('online')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.typeBtnText, typeFilter === 'online' && styles.typeBtnTextActive]}>
+              Kasir Online (Online)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Transaction Status Filter Tabs */}
+        <View style={styles.statusFilterRow}>
+          <TouchableOpacity
+            style={[styles.statusBtn, statusFilter === 'all' && styles.statusBtnActive]}
+            onPress={() => handleSelectStatusFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.statusBtnText, statusFilter === 'all' && styles.statusBtnTextActive]}>
+              Semua Status
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statusBtn, statusFilter === 'success' && styles.statusBtnActive]}
+            onPress={() => handleSelectStatusFilter('success')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.statusBtnText, statusFilter === 'success' && styles.statusBtnTextActive]}>
+              Sukses / Lunas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statusBtn, statusFilter === 'pending' && styles.statusBtnActive]}
+            onPress={() => handleSelectStatusFilter('pending')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.statusBtnText, statusFilter === 'pending' && styles.statusBtnTextActive]}>
+              Pending (Belum Bayar)
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Date Filter Tabs */}
@@ -641,4 +755,106 @@ const styles = StyleSheet.create({
   txnItemsCount: { color: Colors.textSecondary, fontSize: 11, marginTop: 1 },
   txnRight: { alignItems: 'flex-end', justifyContent: 'center' },
   grossAmount: { color: Colors.accentGreen, fontWeight: '800', fontSize: Fonts.sizes.sm },
+
+  // Transaction type filter and badges
+  typeFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.base,
+    paddingBottom: 2,
+    gap: Spacing.xs,
+  },
+  typeBtn: {
+    flex: 1,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Radius.md,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  typeBtnActive: {
+    backgroundColor: Colors.primary + '18',
+    borderColor: Colors.primary,
+  },
+  typeBtnText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  typeBtnTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  typeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  offlineBadge: {
+    backgroundColor: Colors.textMuted + '15',
+  },
+  onlineBadge: {
+    backgroundColor: Colors.primary + '15',
+  },
+  typeBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  offlineBadgeText: {
+    color: Colors.textMuted,
+  },
+  onlineBadgeText: {
+    color: Colors.primary,
+  },
+
+  // Payment Status filter and badges
+  statusFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.base,
+    gap: Spacing.xs,
+  },
+  statusBtn: {
+    flex: 1,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Radius.md,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  statusBtnActive: {
+    backgroundColor: Colors.primary + '18',
+    borderColor: Colors.primary,
+  },
+  statusBtnText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusBtnTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  successBadge: {
+    backgroundColor: Colors.success + '15',
+  },
+  pendingBadge: {
+    backgroundColor: Colors.warning + '15',
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  successBadgeText: {
+    color: Colors.success,
+  },
+  pendingBadgeText: {
+    color: Colors.warning,
+  },
 });

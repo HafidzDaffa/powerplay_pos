@@ -99,7 +99,7 @@ export default function SettingsScreen() {
           <View style={styles.logoWrap}>
             <Image source={require('../../assets/logo.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
           </View>
-          <Text style={styles.appName}>Dependor</Text>
+          <Text style={styles.appName}>POS Dependor</Text>
           <Text style={styles.version}>Versi 1.0.0 • Android</Text>
         </View>
 
